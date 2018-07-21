@@ -21,69 +21,6 @@ Scene* GameScene::createScene() {
 	return scene;
 }
 
-void GameScene::updateCustom(float dt) {
-	auto leftWall1 = walls[0];
-	auto leftWall2 = walls[1];
-	auto rightWall1 = walls[2];
-	auto rightWall2 = walls[3];
-	auto moveBy = MoveBy::create(0.1, Vec2(0, -50));
-
-	leftWall1->runAction(MoveBy::create(0.01, Vec2(0, -5)));
-	leftWall2->runAction(MoveBy::create(0.01, Vec2(0, -5)));
-	rightWall1->runAction(MoveBy::create(0.01, Vec2(0, -5)));
-	rightWall2->runAction(MoveBy::create(0.01, Vec2(0, -5)));
-	
-	if (leftWall1->getPositionY() <= 0 - leftWall1->getContentSize().height * 1.4 / 2) {
-		leftWall1->setPosition(Vec2(leftWall1->getContentSize().width * 0.6 / 2, visibleSize.height / 2 + visibleSize.height));
-	}
-	if (leftWall2->getPositionY() <= 0 - leftWall2->getContentSize().height * 1.4 / 2) {
-		leftWall2->setPosition(Vec2(leftWall2->getContentSize().width * 0.6 / 2, visibleSize.height / 2 + visibleSize.height));
-	}
-	if (rightWall1->getPositionY() <= 0 - rightWall1->getContentSize().height * 1.4 / 2) {
-		rightWall1->setPosition(Vec2(visibleSize.width - rightWall1->getContentSize().width * 0.6 / 2, visibleSize.height / 2 + visibleSize.height));
-	}
-	if (rightWall2->getPositionY() <= 0 - rightWall2->getContentSize().height * 1.4 / 2) {
-		rightWall2->setPosition(Vec2(visibleSize.width - rightWall2->getContentSize().width * 0.6 / 2, visibleSize.height / 2 + visibleSize.height));
-	}
-
-	for (auto roof : roofs) {
-		roof->runAction(MoveBy::create(0.01, Vec2(0, -5)));
-	}
-}
-
-void GameScene::generateRoofs(float dt) {
-	int num = random(1, 2);
-	Sprite *roof;
-
-	if (num == 1) {
-		roof = Sprite::create("images/left_roof" + std::to_string(random(2, 3)) + ".png");
-		roof->setPosition(Vec2(walls[0]->getContentSize().width * 0.6 + roof->getContentSize().width / 3, visibleSize.height));
-	}
-	if (num == 2) {
-		roof = Sprite::create("images/right_roof" + std::to_string(random(2, 3)) + ".png");
-		roof->setPosition(Vec2(visibleSize.width - walls[0]->getContentSize().width * 0.6 - roof->getContentSize().width / 3, visibleSize.height));
-	}
-
-	auto roofPhysicsBody = PhysicsBody::createBox(Size(roof->getContentSize().width, roof->getContentSize().height), PhysicsMaterial(50.0f, 1.0, 0.0f));
-	roofPhysicsBody->setCategoryBitmask(0x2);
-	roofPhysicsBody->setCollisionBitmask(0x2);
-	roofPhysicsBody->setContactTestBitmask(0x2);
-	roofPhysicsBody->setDynamic(false);
-	roof->setTag(ROOF);
-	roof->setPhysicsBody(roofPhysicsBody);
-	roofs.push_back(roof);
-	this->addChild(roof, 0);
-}
-
-void GameScene::generateAttacker(float dt) {
-	int num = random(0, 2);
-	if (num == 1) {
-		attackPlayer();
-	}
-
-
-}
-
 // on "init" you need to initialize your instance
 bool GameScene::init()
 {
@@ -193,11 +130,15 @@ void GameScene::loadMyAnimationsAndSprite()
 
 	//¼ÓÔØÆïÊ¿ºÍÆïÊ¿³å·æ¶¯»­
 	def.filePath = "images/cavalry_left.gif";
+	def.loops = 3;
 	cavalry = Sprite::createWithTexture(GifAnimation::getInstance()->getFristTexture(def.filePath));
 	AnimationCache::getInstance()->addAnimation(GifAnimation::getInstance()->createAnimation(def), "CavalryLeft");
 
+
 	def.filePath = "images/cavalry_right.gif";
 	AnimationCache::getInstance()->addAnimation(GifAnimation::getInstance()->createAnimation(def), "CavalryRight");
+	def.loops = -1;
+
 
 	//¼ÓÔØºüÀêºÍºüÀê³å·æ¶¯»­
 	def.filePath = "images/fox_left.gif";
@@ -215,14 +156,86 @@ void GameScene::loadMyAnimationsAndSprite()
 
 	def.filePath = "images/bird_right.gif";
 	AnimationCache::getInstance()->addAnimation(GifAnimation::getInstance()->createAnimation(def), "BirdRight");
+	
+	// ¼ÓÔØËÀÍö¶¯»­
+	def.filePath = "images/left_fall.gif";
+	AnimationCache::getInstance()->addAnimation(GifAnimation::getInstance()->createAnimation(def), "FallLeft");
+	def.filePath = "images/right_fall.gif";
+	AnimationCache::getInstance()->addAnimation(GifAnimation::getInstance()->createAnimation(def), "FallRight");
+
 }
 
 void GameScene::loadMyMusic()
 {
 	auto audio = SimpleAudioEngine::getInstance();
-	
 	audio->preloadBackgroundMusic("sounds/background.mp3");
 	audio->playBackgroundMusic("sounds/background.mp3", true);
+	audio->preloadEffect("sounds/fall.ogg");
+}
+
+void GameScene::updateCustom(float dt) {
+	auto leftWall1 = walls[0];
+	auto leftWall2 = walls[1];
+	auto rightWall1 = walls[2];
+	auto rightWall2 = walls[3];
+	auto moveBy = MoveBy::create(0.1, Vec2(0, -50));
+
+	leftWall1->runAction(MoveBy::create(0.01, Vec2(0, -5)));
+	leftWall2->runAction(MoveBy::create(0.01, Vec2(0, -5)));
+	rightWall1->runAction(MoveBy::create(0.01, Vec2(0, -5)));
+	rightWall2->runAction(MoveBy::create(0.01, Vec2(0, -5)));
+
+	if (leftWall1->getPositionY() <= 0 - leftWall1->getContentSize().height * 1.4 / 2) {
+		leftWall1->setPosition(Vec2(leftWall1->getContentSize().width * 0.6 / 2, visibleSize.height / 2 + visibleSize.height));
+	}
+	if (leftWall2->getPositionY() <= 0 - leftWall2->getContentSize().height * 1.4 / 2) {
+		leftWall2->setPosition(Vec2(leftWall2->getContentSize().width * 0.6 / 2, visibleSize.height / 2 + visibleSize.height));
+	}
+	if (rightWall1->getPositionY() <= 0 - rightWall1->getContentSize().height * 1.4 / 2) {
+		rightWall1->setPosition(Vec2(visibleSize.width - rightWall1->getContentSize().width * 0.6 / 2, visibleSize.height / 2 + visibleSize.height));
+	}
+	if (rightWall2->getPositionY() <= 0 - rightWall2->getContentSize().height * 1.4 / 2) {
+		rightWall2->setPosition(Vec2(visibleSize.width - rightWall2->getContentSize().width * 0.6 / 2, visibleSize.height / 2 + visibleSize.height));
+	}
+
+	for (auto roof : roofs) {
+		roof->runAction(MoveBy::create(0.01, Vec2(0, -5)));
+	}
+}
+
+void GameScene::generateRoofs(float dt) {
+	int num = random(1, 2);
+	Sprite *roof;
+
+	if (num == 1) {
+		roof = Sprite::create("images/left_roof" + std::to_string(random(2, 3)) + ".png");
+		roof->setPosition(Vec2(walls[0]->getContentSize().width * 0.6 + roof->getContentSize().width / 3, visibleSize.height));
+	}
+	if (num == 2) {
+		roof = Sprite::create("images/right_roof" + std::to_string(random(2, 3)) + ".png");
+		roof->setPosition(Vec2(visibleSize.width - walls[0]->getContentSize().width * 0.6 - roof->getContentSize().width / 3, visibleSize.height));
+	}
+
+	auto roofPhysicsBody = PhysicsBody::createBox(Size(roof->getContentSize().width, roof->getContentSize().height), PhysicsMaterial(50.0f, 1.0, 0.0f));
+	roofPhysicsBody->setCategoryBitmask(0x2);
+	roofPhysicsBody->setCollisionBitmask(0x2);
+	roofPhysicsBody->setContactTestBitmask(0x2);
+	roofPhysicsBody->setDynamic(false);
+	roof->setTag(ROOF);
+	roof->setPhysicsBody(roofPhysicsBody);
+	roofs.push_back(roof);
+	this->addChild(roof, 0);
+}
+
+void GameScene::generateAttacker(float dt) {
+	int num = random(0, 2);
+	log("%d", num);
+	if (num == 1) {
+		birdAttackPlayer();
+	}
+	else if (num == 2) {
+		cavalryAttackPlayer();
+	}
 }
 
 // Ìí¼Ó´¥ÃþÊÂ¼þ¼àÌýÆ÷
@@ -260,7 +273,6 @@ bool GameScene::onTouchBegan(Touch *touch, Event *event) {
 		auto playerMove6 = MoveTo::create(0.1, Vec2(backX + moveX * 7 / 8, backY + 12.0f));
 		auto playerMove7 = MoveTo::create(0.1, Vec2(backX + moveX * 8 / 8, backY + 0.0f));
 
-
 		Animate* moveAnimate = Animate::create(AnimationCache::getInstance()->getAnimation("Move"));
 		auto set = CallFunc::create(([this]() {
 			position = !position;
@@ -280,23 +292,16 @@ bool GameScene::onTouchBegan(Touch *touch, Event *event) {
 	return true;
 }
 
-
 void GameScene::onTouchEnded(Touch *touch, Event *event) {
 
 }
 
-void GameScene::attackPlayer() {
+void GameScene::birdAttackPlayer() {
 	Size visibleSize = Director::getInstance()->getVisibleSize();
 	if (!attack) {
 		attack = true;
 		Sprite* bird;
 		Animate* birdAnimate;
-
-		auto birdPhysicsBody = PhysicsBody::createBox(Size(player->getContentSize().width, player->getContentSize().height), PhysicsMaterial(100.0f, 1.0, 1.0f));
-		birdPhysicsBody->setCategoryBitmask(0x1);
-		birdPhysicsBody->setCollisionBitmask(0x1);
-		birdPhysicsBody->setContactTestBitmask(0x1);
-		birdPhysicsBody->setDynamic(false);
 
 		if (!position) {
 			// left
@@ -312,17 +317,65 @@ void GameScene::attackPlayer() {
 			bird->setPosition(visibleSize.width * 1 / 5 - 20, visibleSize.height * 3.5 / 4);
 			birdAnimate = Animate::create(AnimationCache::getInstance()->getAnimation("BirdRight"));
 		}
+		auto birdPhysicsBody = PhysicsBody::createBox(Size(bird->getContentSize().width, bird->getContentSize().height), PhysicsMaterial(100.0f, 1.0, 1.0f));
+		birdPhysicsBody->setCategoryBitmask(0x1);
+		birdPhysicsBody->setCollisionBitmask(0x1);
+		birdPhysicsBody->setContactTestBitmask(0x1);
+		birdPhysicsBody->setDynamic(false);
 		bird->setTag(BIRD);
 		bird->setPhysicsBody(birdPhysicsBody);
 		this->addChild(bird, 1);
 		auto set = CallFunc::create(([this, bird]() {
 			bird->removeFromParentAndCleanup(true);
 			attack = false;
+			log("false");
 		}));
 		auto move = MoveTo::create(0.8, Vec2(visibleSize.width - bird->getPositionX(), visibleSize.height / 3));
 		Spawn* birdSpawn = Spawn::create(birdAnimate, move, NULL);
-		Sequence* birdSeq = Sequence::create(birdAnimate, birdSpawn,set, NULL);
+		Sequence* birdSeq = Sequence::create(birdSpawn,set, NULL);
 		bird->runAction(birdSeq);
+	}
+}
+
+void GameScene::cavalryAttackPlayer() {
+	Size visibleSize = Director::getInstance()->getVisibleSize();
+	Vec2 origin = Director::getInstance()->getVisibleOrigin();
+	if (!attack) {
+		attack = true;
+		Sprite* cavalry;
+		Animate* cavalryAnimate;
+
+		if (!position) {
+			// left
+			cavalry = Sprite::create("images/cavalry_l.png");
+			cavalry->setScale(0.8);
+			cavalry->setPosition(walls[0]->getContentSize().width * 0.6 + cavalry->getContentSize().width / 2 - 10, visibleSize.height);
+			cavalryAnimate = Animate::create(AnimationCache::getInstance()->getAnimation("CavalryLeft"));
+		}
+		else {
+			// right
+			cavalry = Sprite::create("images/cavalry_r.png");
+			cavalry->setScale(0.8);
+			cavalry->setPosition(visibleSize.width - walls[0]->getContentSize().width * 0.6 - cavalry->getContentSize().width / 2 + 10, visibleSize.height);
+			cavalryAnimate = Animate::create(AnimationCache::getInstance()->getAnimation("CavalryRight"));
+		}
+		auto cavalryPhysicsBody = PhysicsBody::createBox(Size(cavalry->getContentSize().width, cavalry->getContentSize().height), PhysicsMaterial(50.0f, 1.0, 0.0f));
+		cavalryPhysicsBody->setCategoryBitmask(0x2);
+		cavalryPhysicsBody->setCollisionBitmask(0x2);
+		cavalryPhysicsBody->setContactTestBitmask(0x2);
+		cavalryPhysicsBody->setDynamic(false);
+		cavalry->setTag(CAVALRY);
+		cavalry->setPhysicsBody(cavalryPhysicsBody);
+		this->addChild(cavalry, 1);
+		auto set = CallFunc::create(([this, cavalry]() {
+			cavalry->removeFromParentAndCleanup(true);
+			attack = false;
+			log("false");
+		}));
+		auto move = MoveTo::create(2.0f, Vec2(cavalry->getPositionX(), -cavalry->getContentSize().height * 0.8));
+		Spawn* cavalrySpawn = Spawn::create(cavalryAnimate, move, NULL);
+		Sequence* cavalrySeq = Sequence::create(cavalrySpawn, set, NULL);
+		cavalry->runAction(cavalrySeq);
 	}
 }
 
@@ -332,7 +385,7 @@ bool GameScene::onConcactBegin(PhysicsContact & contact) {
 	auto nodeB = contact.getShapeB()->getBody()->getNode();
 
 	if (nodeA->getTag() == PLAYER) {
-		if (nodeB->getTag() == ROOF)
+		if (nodeB->getTag() == ROOF || nodeB->getTag() == CAVALRY)
 			gameOver();
 		else if (nodeB->getTag() == BIRD) {
 			if(status == "attacking")
@@ -342,7 +395,7 @@ bool GameScene::onConcactBegin(PhysicsContact & contact) {
 		}
 	}
 	else if (nodeB->getTag() == PLAYER) {
-		if (nodeA->getTag() == ROOF)
+		if (nodeA->getTag() == ROOF || nodeA->getTag() == CAVALRY)
 			gameOver();
 		else if (nodeA->getTag() == BIRD) {
 			if (status == "attacking")
@@ -360,6 +413,15 @@ void GameScene::gameOver() {
 	unschedule(schedule_selector(GameScene::updateCustom));
 	unschedule(schedule_selector(GameScene::generateAttacker));
 	unschedule(schedule_selector(GameScene::generateRoofs));
+	player->getActionManager()->removeAllActionsFromTarget(this->getChildByTag(3));
+	auto move = MoveTo::create(2.0f, Vec2(player->getPositionX(), -player->getContentSize().height));
+	Spawn* playerSpawn;
+	if(position)
+		playerSpawn = Spawn::create(Animate::create(AnimationCache::getInstance()->getAnimation("FallRight")), move, NULL);
+	else
+		playerSpawn = Spawn::create(Animate::create(AnimationCache::getInstance()->getAnimation("FallLeft")), move, NULL);
+	player->runAction(playerSpawn);
+	SimpleAudioEngine::getInstance()->playEffect("sounds/fall.ogg");
 	SimpleAudioEngine::getInstance()->stopBackgroundMusic("sounds/background.mp3");
 	auto label1 = Label::createWithTTF("Game Over~", "fonts/STXINWEI.TTF", 60);
 	label1->setColor(Color3B(0, 0, 0));
@@ -392,3 +454,4 @@ void GameScene::exitCallback(Ref * pSender) {
 	exit(0);
 #endif
 }
+

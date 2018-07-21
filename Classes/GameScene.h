@@ -32,7 +32,9 @@ public:
 
 	bool onConcactBegin(PhysicsContact & contact);
 
-	void attackPlayer();
+	void birdAttackPlayer();
+
+	void cavalryAttackPlayer();
 
 	void gameOver();
 
