@@ -5,10 +5,20 @@
 USING_NS_CC;
 
 using namespace CocosDenshion;
+enum Tag { ROOF, CAVALRY, BIRD, PLAYER };
 
-Scene* GameScene::createScene()
-{
-	return GameScene::create();
+void GameScene::setPhysicsWorld(PhysicsWorld* world) { m_world = world; }
+Scene* GameScene::createScene() {
+	srand((unsigned)time(NULL));
+	auto scene = Scene::createWithPhysics();
+	scene->getPhysicsWorld()->setAutoStep(true);
+	scene->getPhysicsWorld()->setGravity(Vec2(0, 0));
+
+	auto layer = GameScene::create();
+	layer->setPhysicsWorld(scene->getPhysicsWorld());
+	// layer->setJoint();
+	scene->addChild(layer);
+	return scene;
 }
 
 void GameScene::updateCustom(float dt) {
@@ -42,19 +52,27 @@ void GameScene::updateCustom(float dt) {
 }
 
 void GameScene::generateRoofs(float dt) {
-	int num = random(0, 2);
+	int num = random(1, 2);
+	Sprite *roof;
+
 	if (num == 1) {
-		auto leftRoof = Sprite::create("images/left_roof" + std::to_string(random(2, 3)) + ".png");
-		leftRoof->setPosition(Vec2(walls[0]->getContentSize().width * 0.6 + leftRoof->getContentSize().width / 3, visibleSize.height));
-		roofs.push_back(leftRoof);
-		this->addChild(leftRoof, 0);
+		roof = Sprite::create("images/left_roof" + std::to_string(random(2, 3)) + ".png");
+		roof->setPosition(Vec2(walls[0]->getContentSize().width * 0.6 + roof->getContentSize().width / 3, visibleSize.height));
 	}
 	if (num == 2) {
-		auto rightRoof = Sprite::create("images/right_roof" + std::to_string(random(2, 3)) + ".png");
-		rightRoof->setPosition(Vec2(visibleSize.width - walls[0]->getContentSize().width * 0.6 - rightRoof->getContentSize().width / 3, visibleSize.height));
-		roofs.push_back(rightRoof);
-		this->addChild(rightRoof, 0);
+		roof = Sprite::create("images/right_roof" + std::to_string(random(2, 3)) + ".png");
+		roof->setPosition(Vec2(visibleSize.width - walls[0]->getContentSize().width * 0.6 - roof->getContentSize().width / 3, visibleSize.height));
 	}
+
+	auto roofPhysicsBody = PhysicsBody::createBox(Size(roof->getContentSize().width, roof->getContentSize().height), PhysicsMaterial(50.0f, 1.0, 0.0f));
+	roofPhysicsBody->setCategoryBitmask(0x2);
+	roofPhysicsBody->setCollisionBitmask(0x2);
+	roofPhysicsBody->setContactTestBitmask(0x2);
+	roofPhysicsBody->setDynamic(false);
+	roof->setTag(ROOF);
+	roof->setPhysicsBody(roofPhysicsBody);
+	roofs.push_back(roof);
+	this->addChild(roof, 0);
 }
 
 void GameScene::generateAttacker(float dt) {
@@ -75,7 +93,7 @@ bool GameScene::init()
 	{
 		return false;
 	}
-
+	// log("%d %d %d %d", ROOF, CAVALRY, BIRD, PLAYER);
 	schedule(schedule_selector(GameScene::updateCustom), 0.01f, kRepeatForever, 0);
 	schedule(schedule_selector(GameScene::generateRoofs), 1.0f, kRepeatForever, 0);
 	schedule(schedule_selector(GameScene::generateAttacker), 1.0f, kRepeatForever, 0);
@@ -126,7 +144,7 @@ bool GameScene::init()
 	loadMyAnimationsAndSprite();
 
 	player->setPosition(Vec2(leftWall1->getContentSize().width * 0.6 + player->getContentSize().width * 0.7 / 2, visibleSize.height / 3 + origin.y));
-	this->addChild(player, 1, 1);
+	this->addChild(player, 1, 3);
 
 	player->runAction(Animate::create(AnimationCache::getInstance()->getAnimation("RunAtLeft")));
 	loadMyMusic();
@@ -141,7 +159,6 @@ bool GameScene::init()
 
 	// 调度器
 	// schedule(schedule_selector(GameScene::attackPlayer), 1.0f, kRepeatForever, 0);
-
 	return true;
 }
 
@@ -155,6 +172,13 @@ void GameScene::loadMyAnimationsAndSprite()
 	def.filePath = "images/left_run.gif"; // 文件路径
 	player = Sprite::createWithTexture(GifAnimation::getInstance()->getFristTexture(def.filePath));
 	player->setScale(0.7);
+	auto playerPhysicsBody = PhysicsBody::createBox(Size(player->getContentSize().width * 0.7, player->getContentSize().height * 0.7), PhysicsMaterial(100.0f, 1.0, 1.0f));
+	playerPhysicsBody->setCategoryBitmask(0x3);
+	playerPhysicsBody->setCollisionBitmask(0x3);
+	playerPhysicsBody->setContactTestBitmask(0x3);
+	playerPhysicsBody->setDynamic(false);
+	player->setTag(PLAYER);
+	player->setPhysicsBody(playerPhysicsBody);
 	AnimationCache::getInstance()->addAnimation(GifAnimation::getInstance()->createAnimation(def), "RunAtLeft");
 
 	def.filePath = "images/right_run.gif";
@@ -203,8 +227,6 @@ void GameScene::loadMyMusic()
 
 // 添加触摸事件监听器
 void GameScene::addTouchListener() {
-	// Todo
-
 	//事件分发器
 	auto dispatcher = Director::getInstance()->getEventDispatcher();
 
@@ -214,12 +236,16 @@ void GameScene::addTouchListener() {
 	touchListener->onTouchEnded = CC_CALLBACK_2(GameScene::onTouchEnded, this);
 
 	dispatcher->addEventListenerWithSceneGraphPriority(touchListener, this);
+	auto contactListener = EventListenerPhysicsContact::create();
+	contactListener->onContactBegin = CC_CALLBACK_1(GameScene::onConcactBegin, this);
+	_eventDispatcher->addEventListenerWithSceneGraphPriority(contactListener, this);
 }
 
 bool GameScene::onTouchBegan(Touch *touch, Event *event) {
 	if (!mutex) {
+		status = "attacking";
 		mutex = true;
-		player->getActionManager()->removeAllActionsFromTarget(this->getChildByTag(1));
+		player->getActionManager()->removeAllActionsFromTarget(this->getChildByTag(3));
 		Size visibleSize = Director::getInstance()->getVisibleSize();
 		float moveX = -1.0f * (2 * player->getPosition().x - visibleSize.width);
 		float backX = player->getPosition().x;
@@ -243,6 +269,7 @@ bool GameScene::onTouchBegan(Touch *touch, Event *event) {
 			else
 				player->runAction(Animate::create(AnimationCache::getInstance()->getAnimation("RunAtLeft")));
 			mutex = false;
+			status = "running";
 		}));
 		Sequence* moveSeq = Sequence::create(playerMove0, playerMove1, playerMove2, playerMove3, playerMove4, playerMove5, playerMove6, playerMove7, NULL);
 
@@ -264,6 +291,13 @@ void GameScene::attackPlayer() {
 		attack = true;
 		Sprite* bird;
 		Animate* birdAnimate;
+
+		auto birdPhysicsBody = PhysicsBody::createBox(Size(player->getContentSize().width, player->getContentSize().height), PhysicsMaterial(100.0f, 1.0, 1.0f));
+		birdPhysicsBody->setCategoryBitmask(0x1);
+		birdPhysicsBody->setCollisionBitmask(0x1);
+		birdPhysicsBody->setContactTestBitmask(0x1);
+		birdPhysicsBody->setDynamic(false);
+
 		if (!position) {
 			// left
 			bird = Sprite::create("images/bird_l.png");
@@ -278,6 +312,8 @@ void GameScene::attackPlayer() {
 			bird->setPosition(visibleSize.width * 1 / 5 - 20, visibleSize.height * 3.5 / 4);
 			birdAnimate = Animate::create(AnimationCache::getInstance()->getAnimation("BirdRight"));
 		}
+		bird->setTag(BIRD);
+		bird->setPhysicsBody(birdPhysicsBody);
 		this->addChild(bird, 1);
 		auto set = CallFunc::create(([this, bird]() {
 			bird->removeFromParentAndCleanup(true);
@@ -288,4 +324,71 @@ void GameScene::attackPlayer() {
 		Sequence* birdSeq = Sequence::create(birdAnimate, birdSpawn,set, NULL);
 		bird->runAction(birdSeq);
 	}
+}
+
+bool GameScene::onConcactBegin(PhysicsContact & contact) {
+	//auto c1 = contact.getShapeA(), c2 = contact.getShapeB();
+	auto nodeA = contact.getShapeA()->getBody()->getNode();
+	auto nodeB = contact.getShapeB()->getBody()->getNode();
+
+	if (nodeA->getTag() == PLAYER) {
+		if (nodeB->getTag() == ROOF)
+			gameOver();
+		else if (nodeB->getTag() == BIRD) {
+			if(status == "attacking")
+				nodeB->removeFromParentAndCleanup(true);
+			else
+				gameOver();
+		}
+	}
+	else if (nodeB->getTag() == PLAYER) {
+		if (nodeA->getTag() == ROOF)
+			gameOver();
+		else if (nodeA->getTag() == BIRD) {
+			if (status == "attacking")
+				nodeA->removeFromParentAndCleanup(true);
+			else
+				gameOver();
+		}
+	}
+	return true;
+}
+
+void GameScene::gameOver() {
+	log("gameover");
+	_eventDispatcher->removeAllEventListeners();
+	unschedule(schedule_selector(GameScene::updateCustom));
+	unschedule(schedule_selector(GameScene::generateAttacker));
+	unschedule(schedule_selector(GameScene::generateRoofs));
+	SimpleAudioEngine::getInstance()->stopBackgroundMusic("sounds/background.mp3");
+	auto label1 = Label::createWithTTF("Game Over~", "fonts/STXINWEI.TTF", 60);
+	label1->setColor(Color3B(0, 0, 0));
+	label1->setPosition(visibleSize.width / 2, visibleSize.height / 2);
+	this->addChild(label1);
+
+	auto label2 = Label::createWithTTF("重玩", "fonts/STXINWEI.TTF", 40);
+	label2->setColor(Color3B(0, 0, 0));
+	auto replayBtn = MenuItemLabel::create(label2, CC_CALLBACK_1(GameScene::replayCallback, this));
+	Menu* replay = Menu::create(replayBtn, NULL);
+	replay->setPosition(visibleSize.width / 2 - 80, visibleSize.height / 2 - 100);
+	this->addChild(replay);
+
+	auto label3 = Label::createWithTTF("退出", "fonts/STXINWEI.TTF", 40);
+	label3->setColor(Color3B(0, 0, 0));
+	auto exitBtn = MenuItemLabel::create(label3, CC_CALLBACK_1(GameScene::exitCallback, this));
+	Menu* exit = Menu::create(exitBtn, NULL);
+	exit->setPosition(visibleSize.width / 2 + 90, visibleSize.height / 2 - 100);
+	this->addChild(exit);
+}
+// 继续或重玩按钮响应函数
+void GameScene::replayCallback(Ref * pSender) {
+	Director::getInstance()->replaceScene(GameScene::createScene());
+}
+
+// 退出
+void GameScene::exitCallback(Ref * pSender) {
+	Director::getInstance()->end();
+#if (CC_TARGET_PLATFORM == CC_PLATFORM_IOS)
+	exit(0);
+#endif
 }
