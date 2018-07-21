@@ -37,7 +37,6 @@ private:
 	cocos2d::Sprite* player;
 	cocos2d::Sprite* cavalry;
 	cocos2d::Sprite* fox;
-	cocos2d::Sprite* bird;
 	std::vector<cocos2d::Sprite*> walls;
 	std::vector<cocos2d::Sprite*> roofs;
 	Size visibleSize;

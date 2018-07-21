@@ -283,7 +283,7 @@ void GameScene::attackPlayer() {
 			bird->removeFromParentAndCleanup(true);
 			attack = false;
 		}));
-		auto move = MoveTo::create(0.8, Vec2(visibleSize.width - bird->getPositionX() , visibleSize.height / 3));
+		auto move = MoveTo::create(0.8, Vec2(visibleSize.width - bird->getPositionX(), visibleSize.height / 3));
 		Spawn* birdSpawn = Spawn::create(birdAnimate, move, NULL);
 		Sequence* birdSeq = Sequence::create(birdAnimate, birdSpawn,set, NULL);
 		bird->runAction(birdSeq);
