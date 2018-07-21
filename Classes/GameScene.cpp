@@ -353,3 +353,39 @@ void GameScene::beInvincible() {
 		invincible = true;
 	}
 }
+
+// datebase
+//存
+void GameScene::store() {
+
+	/* sqlite */
+	char * errMsg = NULL;	//错误信息   
+	std::string sqlstr = " insert into Scores( score ) values ( '" + Value(score).asString() + "' ) ";
+	sqlite3_exec(db, sqlstr.c_str(), NULL, NULL, &errMsg);
+	//关闭数据库   
+	sqlite3_close(db);
+
+	/* userdefault */
+	//检测xml文件是否存在（非必须）
+	if (!database->getBoolForKey("isExist")) {
+		database->setBoolForKey("isExist", true);
+	}
+
+	//存
+	int kill = std::atoi(Value(score).asString().c_str());
+	if (kill > database->getIntegerForKey("bestScore", 0))
+		database->setIntegerForKey("bestScore", kill);
+
+	int round = database->getIntegerForKey("round", 0) + 1;
+	database->setIntegerForKey("round", round);
+
+	std::string newKey = "round" + Value(round).asString();
+	database->setIntegerForKey(newKey.c_str(), kill);
+}
+
+//取
+int GameScene::get() {
+	int bestScore = database->getIntegerForKey("bestScore", 0);
+
+	return bestScore;
+}

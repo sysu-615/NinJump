@@ -2,6 +2,8 @@
 #include <stdio.h>
 #include <vector>
 #include "cocos2d.h"
+#include "sqlite3.h"
+#define database UserDefault::getInstance()
 
 USING_NS_CC;
 
@@ -36,6 +38,10 @@ public:
 
 	void beInvincible();
 
+	void store();
+
+	int get();
+
 	CREATE_FUNC(GameScene);
 
 private:
@@ -46,6 +52,7 @@ private:
 	std::vector<cocos2d::Sprite*> birds;
 	Size visibleSize;
 	int score;
+	sqlite3* db;
 
 	// Œﬁµ––≈∫≈¡ø
 	bool invincible;
