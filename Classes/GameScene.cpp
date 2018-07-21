@@ -76,10 +76,13 @@ bool GameScene::init()
 	player->runAction(Animate::create(AnimationCache::getInstance()->getAnimation("RunAtLeft")));
 	loadMyMusic();
 
-	// 一次只能播放一个动画
 	mutex = false;
 	attack = false;
 	position = false;
+	invincible = false;
+
+	// 计分
+	score = 0;
 
 	// 添加监听器
 	addTouchListener();
@@ -115,7 +118,7 @@ void GameScene::loadMyAnimationsAndSprite()
 	//加载骑士和骑士冲锋动画
 	def.filePath = "images/cavalry_left.gif";
 	def.loops = 3;
-	cavalry = Sprite::createWithTexture(GifAnimation::getInstance()->getFristTexture(def.filePath));
+	Sprite* cavalry = Sprite::createWithTexture(GifAnimation::getInstance()->getFristTexture(def.filePath));
 	AnimationCache::getInstance()->addAnimation(GifAnimation::getInstance()->createAnimation(def), "CavalryLeft");
 
 
@@ -126,7 +129,7 @@ void GameScene::loadMyAnimationsAndSprite()
 
 	//加载狐狸和狐狸冲锋动画
 	def.filePath = "images/fox_left.gif";
-	fox = Sprite::createWithTexture(GifAnimation::getInstance()->getFristTexture(def.filePath));
+	Sprite* fox = Sprite::createWithTexture(GifAnimation::getInstance()->getFristTexture(def.filePath));
 	AnimationCache::getInstance()->addAnimation(GifAnimation::getInstance()->createAnimation(def), "FoxLeft");
 
 	def.filePath = "images/fox_right.gif";
@@ -198,14 +201,13 @@ void GameScene::generateRoofs(float dt) {
 
 void GameScene::generateAttacker(float dt) {
 	int num = random(0, 2);
-	log("%d", num);
 	if (num == 1) {
 		birdAttackPlayer();
+
 	}
 	else if (num == 2) {
 		cavalryAttackPlayer();
 	}
-
 
 }
 
@@ -233,14 +235,14 @@ bool GameScene::onTouchBegan(Touch *touch, Event *event) {
 		float backX = player->getPosition().x;
 		float backY = player->getPosition().y;
 
-		auto playerMove0 = MoveTo::create(0.1, Vec2(backX + moveX * 1 / 8, backY + 12.0f));
-		auto playerMove1 = MoveTo::create(0.1, Vec2(backX + moveX * 2 / 8, backY + 20.0f));
-		auto playerMove2 = MoveTo::create(0.1, Vec2(backX + moveX * 3 / 8, backY + 27.0f));
+		auto playerMove0 = MoveTo::create(0.05, Vec2(backX + moveX * 1 / 8, backY + 12.0f));
+		auto playerMove1 = MoveTo::create(0.05, Vec2(backX + moveX * 2 / 8, backY + 20.0f));
+		auto playerMove2 = MoveTo::create(0.05, Vec2(backX + moveX * 3 / 8, backY + 27.0f));
 		auto playerMove3 = MoveTo::create(0.1, Vec2(backX + moveX * 4 / 8, backY + 31.5f));
 		auto playerMove4 = MoveTo::create(0.1, Vec2(backX + moveX * 5 / 8, backY + 27.0f));
-		auto playerMove5 = MoveTo::create(0.1, Vec2(backX + moveX * 6 / 8, backY + 20.0f));
-		auto playerMove6 = MoveTo::create(0.1, Vec2(backX + moveX * 7 / 8, backY + 12.0f));
-		auto playerMove7 = MoveTo::create(0.1, Vec2(backX + moveX * 8 / 8, backY + 0.0f));
+		auto playerMove5 = MoveTo::create(0.05, Vec2(backX + moveX * 6 / 8, backY + 20.0f));
+		auto playerMove6 = MoveTo::create(0.05, Vec2(backX + moveX * 7 / 8, backY + 12.0f));
+		auto playerMove7 = MoveTo::create(0.05, Vec2(backX + moveX * 8 / 8, backY + 0.0f));
 
 
 		Animate* moveAnimate = Animate::create(AnimationCache::getInstance()->getAnimation("Move"));
@@ -265,6 +267,7 @@ void GameScene::onTouchEnded(Touch *touch, Event *event) {
 
 }
 
+// 鸟攻击者
 void GameScene::birdAttackPlayer() {
 	Size visibleSize = Director::getInstance()->getVisibleSize();
 	if (!attack) {
@@ -297,6 +300,7 @@ void GameScene::birdAttackPlayer() {
 	}
 }
 
+// 人马攻击者
 void GameScene::cavalryAttackPlayer() {
 	Size visibleSize = Director::getInstance()->getVisibleSize();
 	Vec2 origin = Director::getInstance()->getVisibleOrigin();
@@ -327,5 +331,25 @@ void GameScene::cavalryAttackPlayer() {
 		Spawn* cavalrySpawn = Spawn::create(cavalryAnimate, move, NULL);
 		Sequence* cavalrySeq = Sequence::create(cavalrySpawn, set, NULL);
 		cavalry->runAction(cavalrySeq);
+	}
+}
+
+// 忍者斩杀鸟
+void GameScene::killBird() {
+	Sprite* bird = Sprite::create("images/bird.png");
+	bird->setScale(0.2);
+	bird->setPosition(Vec2(birds.size() * bird->getContentSize().width * 0.2 + 20, bird->getContentSize().height * 0.2));
+	this->addChild(bird);
+	birds.push_back(bird);
+}
+
+// 无敌状态
+void GameScene::beInvincible() {
+	if (birds.size() == 3) {
+		for (auto it : birds)
+			it->removeFromParentAndCleanup(true);
+		birds.clear();
+		//无敌
+		invincible = true;
 	}
 }
