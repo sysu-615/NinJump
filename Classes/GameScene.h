@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <vector>
 #include "cocos2d.h"
+#include "sqlite3"
 
 USING_NS_CC;
 
@@ -61,12 +62,10 @@ private:
 	int score;
 	// 无敌信号量
 	bool invincible;
+	int invincibleTime;
 	// 控制一次只能播放一个动画
 	bool mutex;
 
 	// 判断位置
 	bool position;
-
-	// 是否存在攻击者
-	bool attack;
 };

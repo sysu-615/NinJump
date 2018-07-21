@@ -88,10 +88,9 @@ bool GameScene::init()
 	loadMyMusic();
 
 	mutex = false;
-	attack = false;
 	position = false;
 	invincible = false;
-
+	invincibleTime = 0;
 	// 计分
 	score = 0;
 
@@ -203,12 +202,25 @@ void GameScene::updateCustom(float dt) {
 	for (auto roof : roofs) {
 		roof->runAction(MoveBy::create(0.01, Vec2(0, std::max(-8.0, -3 - 0.02*dtime))));
 	}
+
+	if (invincible) {
+		auto meteorBall = ParticleMeteor::create();
+		meteorBall->setPosition(player->getPosition());
+		meteorBall->setDuration(-1);
+		this->addChild(meteorBall, 1);
+	}
 }
 
 void GameScene::generateRoofs(float dt) {
 	int num = random(1, 2);
 	Sprite *roof;
 	dtime++;
+	score += 20;
+	if (invincible) {
+		invincibleTime--;
+		if (invincibleTime == 0)
+			invincible = false;
+	}
 	if (num == 1) {
 		roof = Sprite::create("images/left_roof" + std::to_string(random(2, 3)) + ".png");
 		roof->setPosition(Vec2(walls[0]->getContentSize().width * 0.6 + roof->getContentSize().width / 3, visibleSize.height));
@@ -301,86 +313,76 @@ void GameScene::onTouchEnded(Touch *touch, Event *event) {
 // 鸟攻击者
 void GameScene::birdAttackPlayer() {
 	Size visibleSize = Director::getInstance()->getVisibleSize();
-	//if (!attack) {
-		attack = true;
-		Sprite* bird;
-		Animate* birdAnimate;
+	Sprite* bird;
+	Animate* birdAnimate;
 
-		if (!position) {
-			// left
-			bird = Sprite::create("images/bird_l.png");
-			bird->setScale(0.8);
-			bird->setPosition(visibleSize.width * 4 / 5 + 20, visibleSize.height * 3.5 / 4);
-			birdAnimate = Animate::create(AnimationCache::getInstance()->getAnimation("BirdLeft"));
-		}
-		else {
-			// right
-			bird = Sprite::create("images/bird_r.png");
-			bird->setScale(0.8);
-			bird->setPosition(visibleSize.width * 1 / 5 - 20, visibleSize.height * 3.5 / 4);
-			birdAnimate = Animate::create(AnimationCache::getInstance()->getAnimation("BirdRight"));
-		}
-		auto birdPhysicsBody = PhysicsBody::createBox(Size(bird->getContentSize().width, bird->getContentSize().height), PhysicsMaterial(100.0f, 1.0, 1.0f));
-		birdPhysicsBody->setCategoryBitmask(0x1);
-		birdPhysicsBody->setCollisionBitmask(0x1);
-		birdPhysicsBody->setContactTestBitmask(0x1);
-		birdPhysicsBody->setDynamic(false);
-		bird->setTag(BIRD);
-		bird->setPhysicsBody(birdPhysicsBody);
-		this->addChild(bird, 1);
-		auto set = CallFunc::create(([this, bird]() {
-			bird->removeFromParentAndCleanup(true);
-			attack = false;
-			log("false");
-		}));
-		auto move = MoveTo::create(0.8, Vec2(visibleSize.width - bird->getPositionX(), visibleSize.height / 4));
-		Spawn* birdSpawn = Spawn::create(birdAnimate, move, NULL);
-		Sequence* birdSeq = Sequence::create(birdSpawn,set, NULL);
-		bird->runAction(birdSeq);
-	//}
+	if (!position) {
+		// left
+		bird = Sprite::create("images/bird_l.png");
+		bird->setScale(0.8);
+		bird->setPosition(visibleSize.width * 4 / 5 + 20, visibleSize.height * 3.5 / 4);
+		birdAnimate = Animate::create(AnimationCache::getInstance()->getAnimation("BirdLeft"));
+	}
+	else {
+		// right
+		bird = Sprite::create("images/bird_r.png");
+		bird->setScale(0.8);
+		bird->setPosition(visibleSize.width * 1 / 5 - 20, visibleSize.height * 3.5 / 4);
+		birdAnimate = Animate::create(AnimationCache::getInstance()->getAnimation("BirdRight"));
+	}
+	auto birdPhysicsBody = PhysicsBody::createBox(Size(bird->getContentSize().width, bird->getContentSize().height), PhysicsMaterial(100.0f, 1.0, 1.0f));
+	birdPhysicsBody->setCategoryBitmask(0x1);
+	birdPhysicsBody->setCollisionBitmask(0x1);
+	birdPhysicsBody->setContactTestBitmask(0x1);
+	birdPhysicsBody->setDynamic(false);
+	bird->setTag(BIRD);
+	bird->setPhysicsBody(birdPhysicsBody);
+	this->addChild(bird, 1);
+	auto set = CallFunc::create(([this, bird]() {
+		bird->removeFromParentAndCleanup(true);
+	}));
+	auto move = MoveTo::create(0.8, Vec2(visibleSize.width - bird->getPositionX(), visibleSize.height / 4));
+	Spawn* birdSpawn = Spawn::create(birdAnimate, move, NULL);
+	Sequence* birdSeq = Sequence::create(birdSpawn,set, NULL);
+	bird->runAction(birdSeq);
 }
 
 // 人马攻击者
 void GameScene::cavalryAttackPlayer() {
 	Size visibleSize = Director::getInstance()->getVisibleSize();
 	Vec2 origin = Director::getInstance()->getVisibleOrigin();
-	//if (!attack) {
-		attack = true;
-		Sprite* cavalry;
-		Animate* cavalryAnimate;
+	Sprite* cavalry;
+	Animate* cavalryAnimate;
 
-		if (!position) {
-			// left
-			cavalry = Sprite::create("images/cavalry_l.png");
-			cavalry->setScale(0.8);
-			cavalry->setPosition(walls[0]->getContentSize().width * 0.6 + cavalry->getContentSize().width / 2 - 10, visibleSize.height);
-			cavalryAnimate = Animate::create(AnimationCache::getInstance()->getAnimation("CavalryLeft"));
-		}
-		else {
-			// right
-			cavalry = Sprite::create("images/cavalry_r.png");
-			cavalry->setScale(0.8);
-			cavalry->setPosition(visibleSize.width - walls[0]->getContentSize().width * 0.6 - cavalry->getContentSize().width / 2 + 10, visibleSize.height);
-			cavalryAnimate = Animate::create(AnimationCache::getInstance()->getAnimation("CavalryRight"));
-		}
-		auto cavalryPhysicsBody = PhysicsBody::createBox(Size(cavalry->getContentSize().width, cavalry->getContentSize().height), PhysicsMaterial(50.0f, 1.0, 0.0f));
-		cavalryPhysicsBody->setCategoryBitmask(0x2);
-		cavalryPhysicsBody->setCollisionBitmask(0x2);
-		cavalryPhysicsBody->setContactTestBitmask(0x2);
-		cavalryPhysicsBody->setDynamic(false);
-		cavalry->setTag(CAVALRY);
-		cavalry->setPhysicsBody(cavalryPhysicsBody);
-		this->addChild(cavalry, 1);
-		auto set = CallFunc::create(([this, cavalry]() {
-			cavalry->removeFromParentAndCleanup(true);
-			attack = false;
-			log("false");
-		}));
-		auto move = MoveTo::create(1.6f, Vec2(cavalry->getPositionX(), -cavalry->getContentSize().height * 0.8));
-		Spawn* cavalrySpawn = Spawn::create(cavalryAnimate, move, NULL);
-		Sequence* cavalrySeq = Sequence::create(cavalrySpawn, set, NULL);
-		cavalry->runAction(cavalrySeq);
-	//}
+	if (!position) {
+		// left
+		cavalry = Sprite::create("images/cavalry_l.png");
+		cavalry->setScale(0.8);
+		cavalry->setPosition(walls[0]->getContentSize().width * 0.6 + cavalry->getContentSize().width / 2 - 10, visibleSize.height);
+		cavalryAnimate = Animate::create(AnimationCache::getInstance()->getAnimation("CavalryLeft"));
+	}
+	else {
+		// right
+		cavalry = Sprite::create("images/cavalry_r.png");
+		cavalry->setScale(0.8);
+		cavalry->setPosition(visibleSize.width - walls[0]->getContentSize().width * 0.6 - cavalry->getContentSize().width / 2 + 10, visibleSize.height);
+		cavalryAnimate = Animate::create(AnimationCache::getInstance()->getAnimation("CavalryRight"));
+	}
+	auto cavalryPhysicsBody = PhysicsBody::createBox(Size(cavalry->getContentSize().width, cavalry->getContentSize().height), PhysicsMaterial(50.0f, 1.0, 0.0f));
+	cavalryPhysicsBody->setCategoryBitmask(0x2);
+	cavalryPhysicsBody->setCollisionBitmask(0x2);
+	cavalryPhysicsBody->setContactTestBitmask(0x2);
+	cavalryPhysicsBody->setDynamic(false);
+	cavalry->setTag(CAVALRY);
+	cavalry->setPhysicsBody(cavalryPhysicsBody);
+	this->addChild(cavalry, 1);
+	auto set = CallFunc::create(([this, cavalry]() {
+		cavalry->removeFromParentAndCleanup(true);
+	}));
+	auto move = MoveTo::create(1.6f, Vec2(cavalry->getPositionX(), -cavalry->getContentSize().height * 0.8));
+	Spawn* cavalrySpawn = Spawn::create(cavalryAnimate, move, NULL);
+	Sequence* cavalrySeq = Sequence::create(cavalrySpawn, set, NULL);
+	cavalry->runAction(cavalrySeq);
 }
 
 bool GameScene::onConcactBegin(PhysicsContact & contact) {
@@ -388,12 +390,18 @@ bool GameScene::onConcactBegin(PhysicsContact & contact) {
 	auto nodeA = contact.getShapeA()->getBody()->getNode();
 	auto nodeB = contact.getShapeB()->getBody()->getNode();
 
+	if (invincible) return true;
+
 	if (nodeA->getTag() == PLAYER) {
 		if (nodeB->getTag() == ROOF || nodeB->getTag() == CAVALRY)
 			gameOver();
 		else if (nodeB->getTag() == BIRD) {
-			if(status == "attacking")
+			if (status == "attacking") {
+				killBird();
+				beInvincible();
+				score += 100;
 				nodeB->removeFromParentAndCleanup(true);
+			}
 			else
 				gameOver();
 		}
@@ -402,8 +410,12 @@ bool GameScene::onConcactBegin(PhysicsContact & contact) {
 		if (nodeA->getTag() == ROOF || nodeA->getTag() == CAVALRY)
 			gameOver();
 		else if (nodeA->getTag() == BIRD) {
-			if (status == "attacking")
+			if (status == "attacking") {
+				killBird();
+				beInvincible();
+				score += 100;
 				nodeA->removeFromParentAndCleanup(true);
+			}
 			else
 				gameOver();
 		}
@@ -459,7 +471,6 @@ void GameScene::exitCallback(Ref * pSender) {
 #endif
 }
 
-
 // 忍者斩杀鸟
 void GameScene::killBird() {
 	Sprite* bird = Sprite::create("images/bird.png");
@@ -477,6 +488,7 @@ void GameScene::beInvincible() {
 		birds.clear();
 		//无敌
 		invincible = true;
+		invincibleTime = 5;
 	}
 }
 
