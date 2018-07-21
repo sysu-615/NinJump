@@ -28,7 +28,9 @@ public:
 
 	void onTouchEnded(Touch * touch, Event * event);
 
-	void attackPlayer();
+	void birdAttackPlayer();
+
+	void cavalryAttackPlayer();
 
 	CREATE_FUNC(GameScene);
 
