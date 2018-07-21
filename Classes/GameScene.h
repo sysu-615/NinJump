@@ -2,7 +2,9 @@
 #include <stdio.h>
 #include <vector>
 #include "cocos2d.h"
-#include "sqlite3"
+#include "sqlite3.h"
+
+#define database UserDefault::getInstance()
 
 USING_NS_CC;
 
@@ -46,15 +48,23 @@ public:
 
 	void beInvincible();
 
+	void store();
+
+	int get();
+
 	CREATE_FUNC(GameScene);
 
 private:
 	PhysicsWorld * m_world;
 	cocos2d::Sprite* player;
+	cocos2d::Sprite* scoreboard;
+	cocos2d::Label* scoreLabel;
+	cocos2d::ParticleGalaxy* Galaxy;
 	std::vector<cocos2d::Sprite*> walls;
 	std::vector<cocos2d::Sprite*> roofs;
 	std::vector<cocos2d::Sprite*> birds;
 	Size visibleSize;
+	sqlite3* db;
 	int dtime;
 	//控制 一次只能播放一个动画
 	std::string status;
@@ -65,6 +75,9 @@ private:
 	int invincibleTime;
 	// 控制一次只能播放一个动画
 	bool mutex;
+
+	// 判断是否超越历史记录
+	bool once;
 
 	// 判断位置
 	bool position;

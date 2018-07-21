@@ -12,8 +12,7 @@ Scene* GameScene::createScene() {
 	srand((unsigned)time(NULL));
 	auto scene = Scene::createWithPhysics();
 	scene->getPhysicsWorld()->setAutoStep(true);
-	scene->getPhysicsWorld()->setGravity(Vec2(0, 0));
-
+	scene->getPhysicsWorld()->setGravity(Vec2(0, -300.0f));
 	auto layer = GameScene::create();
 	layer->setPhysicsWorld(scene->getPhysicsWorld());
 	// layer->setJoint();
@@ -79,6 +78,16 @@ bool GameScene::init()
 	walls.push_back(rightWall1);
 	walls.push_back(rightWall2);
 
+	scoreboard = Sprite::create("images/scoreboard.jpg");
+	scoreboard->setPosition(Vec2(visibleSize.width / 2, visibleSize.height - 30));
+	scoreboard->setScale(2);
+	this->addChild(scoreboard, 1);
+
+	scoreLabel = Label::createWithTTF("0", "fonts/STXINWEI.TTF", 40);
+	scoreLabel->setPosition(visibleSize.width / 2, visibleSize.height - 30);
+	scoreLabel->setColor(Color3B(255, 255, 255));
+	this->addChild(scoreLabel, 1);
+
 	loadMyAnimationsAndSprite();
 
 	player->setPosition(Vec2(leftWall1->getContentSize().width * 0.6 + player->getContentSize().width * 0.7 / 2, visibleSize.height / 3 + origin.y));
@@ -86,7 +95,7 @@ bool GameScene::init()
 
 	player->runAction(Animate::create(AnimationCache::getInstance()->getAnimation("RunAtLeft")));
 	loadMyMusic();
-
+	once = false;
 	mutex = false;
 	position = false;
 	invincible = false;
@@ -96,6 +105,15 @@ bool GameScene::init()
 
 	// 添加监听器
 	addTouchListener();
+
+	/* 数据库sqlite */
+	char * errMsg = NULL;	//错误信息   
+	std::string sqlstr;		//SQL指令   
+	int result;				//sqlite3_exec返回值   
+							//打开一个数据库，如果该数据库不存在，则创建一个数据库文件   
+	result = sqlite3_open("NinJump.db", &db);
+	//创建表，设置ID为主键，且自动增加   
+	result = sqlite3_exec(db, "create table if not exists Scores( ID integer primary key autoincrement, score nvarchar(32) ) ", NULL, NULL, &errMsg);
 
 	// 调度器
 	// schedule(schedule_selector(GameScene::attackPlayer), 1.0f, kRepeatForever, 0);
@@ -204,21 +222,29 @@ void GameScene::updateCustom(float dt) {
 	}
 
 	if (invincible) {
-		auto meteorBall = ParticleMeteor::create();
-		meteorBall->setPosition(player->getPosition());
-		meteorBall->setDuration(-1);
-		this->addChild(meteorBall, 1);
+		Galaxy->setPosition(player->getPosition());
 	}
-}
+
+	if(score > get()){
+		if (once == false) {
+			once = true;
+			ParticleFireworks* firework = ParticleFireworks::create();
+			firework->setPosition(visibleSize.width / 2, visibleSize.height / 3 * 2);
+			firework->setDuration(2);
+			this->addChild(firework, 1);
+		}
+	}
+} 
 
 void GameScene::generateRoofs(float dt) {
 	int num = random(1, 2);
 	Sprite *roof;
 	dtime++;
 	score += 20;
+	scoreLabel->setString(std::to_string(score));
 	if (invincible) {
 		invincibleTime--;
-		if (invincibleTime == 0)
+		if (invincibleTime == -1)
 			invincible = false;
 	}
 	if (num == 1) {
@@ -242,12 +268,11 @@ void GameScene::generateRoofs(float dt) {
 }
 
 void GameScene::generateAttacker(float dt) {
-	int num = random(0, 2);
-	if (num == 1) {
+	int num = random(1, 2);
+	if (num == 1 || num == 2) {
 		birdAttackPlayer();
-
 	}
-	else if (num == 2) {
+	else if (num == 3) {
 		cavalryAttackPlayer();
 	}
 }
@@ -390,11 +415,11 @@ bool GameScene::onConcactBegin(PhysicsContact & contact) {
 	auto nodeA = contact.getShapeA()->getBody()->getNode();
 	auto nodeB = contact.getShapeB()->getBody()->getNode();
 
-	if (invincible) return true;
-
 	if (nodeA->getTag() == PLAYER) {
-		if (nodeB->getTag() == ROOF || nodeB->getTag() == CAVALRY)
-			gameOver();
+		if (nodeB->getTag() == ROOF || nodeB->getTag() == CAVALRY) {
+			if (!invincible)
+				gameOver();
+		}
 		else if (nodeB->getTag() == BIRD) {
 			if (status == "attacking") {
 				killBird();
@@ -407,8 +432,10 @@ bool GameScene::onConcactBegin(PhysicsContact & contact) {
 		}
 	}
 	else if (nodeB->getTag() == PLAYER) {
-		if (nodeA->getTag() == ROOF || nodeA->getTag() == CAVALRY)
-			gameOver();
+		if (nodeA->getTag() == ROOF || nodeA->getTag() == CAVALRY) {
+			if (!invincible)
+				gameOver();
+		}
 		else if (nodeA->getTag() == BIRD) {
 			if (status == "attacking") {
 				killBird();
@@ -429,6 +456,8 @@ void GameScene::gameOver() {
 	unschedule(schedule_selector(GameScene::updateCustom));
 	unschedule(schedule_selector(GameScene::generateAttacker));
 	unschedule(schedule_selector(GameScene::generateRoofs));
+	scoreboard->removeFromParentAndCleanup(true);
+	scoreLabel->removeFromParentAndCleanup(true);
 	player->getActionManager()->removeAllActionsFromTarget(this->getChildByTag(3));
 	auto move = MoveTo::create(2.0f, Vec2(player->getPositionX(), -player->getContentSize().height));
 	Spawn* playerSpawn;
@@ -444,6 +473,28 @@ void GameScene::gameOver() {
 	label1->setPosition(visibleSize.width / 2, visibleSize.height / 2);
 	this->addChild(label1);
 
+	Sprite* scoreImage = Sprite::create("images/score.png");
+	scoreImage->setPosition(visibleSize.width / 2, visibleSize.height / 4 * 3);
+	scoreImage->setScale(0.5);
+	this->addChild(scoreImage);
+
+	auto scoreLabel = Label::createWithTTF(std::to_string(score), "fonts/STXINWEI.TTF", 40);
+	scoreLabel->setPosition(visibleSize.width / 2, visibleSize.height / 4 * 3 + 40);
+	this->addChild(scoreLabel);
+
+	Sprite* historyScoreImage = Sprite::create("images/score2.png");
+	historyScoreImage->setPosition(visibleSize.width / 5 * 4 - 40, 70);
+	historyScoreImage->setScale(0.5);
+	this->addChild(historyScoreImage);
+
+	auto historyInfoLabel = Label::createWithTTF("History", "fonts/STXINWEI.TTF", 17);
+	historyInfoLabel->setPosition(visibleSize.width / 5 * 4 + 20, 100);
+	this->addChild(historyInfoLabel);
+
+	auto historyScoreLabel = Label::createWithTTF(std::to_string(get()), "fonts/STXINWEI.TTF", 17);
+	historyScoreLabel->setPosition(visibleSize.width / 5 * 4 - 70, 100);
+	this->addChild(historyScoreLabel);
+
 	auto label2 = Label::createWithTTF("Again", "fonts/STXINWEI.TTF", 40);
 	label2->setColor(Color3B(0, 0, 0));
 	auto replayBtn = MenuItemLabel::create(label2, CC_CALLBACK_1(GameScene::replayCallback, this));
@@ -457,7 +508,9 @@ void GameScene::gameOver() {
 	Menu* exit = Menu::create(exitBtn, NULL);
 	exit->setPosition(visibleSize.width / 2 + 90, visibleSize.height / 2 - 100);
 	this->addChild(exit);
-}
+	if (get() < score)
+		store();
+} 
 // 继续或重玩按钮响应函数
 void GameScene::replayCallback(Ref * pSender) {
 	Director::getInstance()->replaceScene(GameScene::createScene());
@@ -489,6 +542,46 @@ void GameScene::beInvincible() {
 		//无敌
 		invincible = true;
 		invincibleTime = 5;
+		Galaxy = ParticleGalaxy::create();
+		Galaxy->setPosition(player->getPosition());
+		Galaxy->setDuration(5);
+		this->addChild(Galaxy, 1);
 	}
+}
+
+// datebase
+//存
+void GameScene::store() {
+
+	/* sqlite */
+	char * errMsg = NULL;	//错误信息   
+	std::string sqlstr = " insert into Scores( score ) values ( '" + Value(score).asString() + "' ) ";
+	sqlite3_exec(db, sqlstr.c_str(), NULL, NULL, &errMsg);
+	//关闭数据库   
+	sqlite3_close(db);
+
+	/* userdefault */
+	//检测xml文件是否存在（非必须）
+	if (!database->getBoolForKey("isExist")) {
+		database->setBoolForKey("isExist", true);
+	}
+
+	//存
+	int kill = std::atoi(Value(score).asString().c_str());
+	if (kill > database->getIntegerForKey("bestScore", 0))
+		database->setIntegerForKey("bestScore", kill);
+
+	int round = database->getIntegerForKey("round", 0) + 1;
+	database->setIntegerForKey("round", round);
+
+	std::string newKey = "round" + Value(round).asString();
+	database->setIntegerForKey(newKey.c_str(), kill);
+}
+
+//取
+int GameScene::get() {
+	int bestScore = database->getIntegerForKey("bestScore", 0);
+
+	return bestScore;
 }
 
